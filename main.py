@@ -72,6 +72,16 @@ def rate_movie():
         return redirect(url_for('home'))
     return render_template('edit.html', form=rate_movie_form, movie=movie)
 
+@app.route('/delete')
+def delete_movie():
+    # delete movie
+    movie_id = request.args.get('id')
+    movie = Movie.query.get(movie_id)
+    # delete movie in database
+    db.session.delete(movie)
+    db.session.commit()
+    return redirect(url_for('home'))
+
 
 if __name__ == '__main__':
     app.run(debug=True)
