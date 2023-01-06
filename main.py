@@ -5,6 +5,13 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 import requests
+from pprint import pprint
+from sqlalchemy import exc
+
+API_KEY = '7e93aed7901c618f74c82ce62c82f29c'
+MOVIE_SEARCH_URL = 'https://api.themoviedb.org/3/search/movie'
+MOVIE_INFO_URL = 'https://api.themoviedb.org/3/movie'
+MOVIE_DB_IMAGE_URL = 'https://image.tmdb.org/t/p/w500'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
@@ -12,6 +19,11 @@ app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///movies.db'
 Bootstrap(app)
 db = SQLAlchemy(app=app)
+
+# WTForm - adding a movie
+class AddMovieForm(FlaskForm):
+    movie_title = StringField(label='Movie Title', validators=[DataRequired()])
+    submit = SubmitField(label='Add Movie')
 
 # WTForm - RateMovieForm
 class RateMovieForm(FlaskForm):
@@ -22,13 +34,13 @@ class RateMovieForm(FlaskForm):
 # create Movies table
 class Movie(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(250), unique=True, nullable=False)
-    year = db.Column(db.Integer, nullable=False)
-    description = db.Column(db.String(500), unique=True, nullable=False)
-    rating = db.Column(db.Float, nullable=False)
-    ranking = db.Column(db.Integer, unique=True, nullable=False)
-    review = db.Column(db.String(100), unique=True, nullable=False)
-    img_url = db.Column(db.String, unique=True, nullable=False)
+    title = db.Column(db.String(250), unique=True, nullable=True)
+    year = db.Column(db.Integer, nullable=True)
+    description = db.Column(db.String(500), unique=True, nullable=True)
+    rating = db.Column(db.Float, nullable=True)
+    ranking = db.Column(db.Integer, unique=True, nullable=True)
+    review = db.Column(db.String(100), unique=True, nullable=True)
+    img_url = db.Column(db.String, unique=True, nullable=True)
 
 app.app_context().push()
 db.create_all()
@@ -52,15 +64,23 @@ def home():
     all_movies = Movie.query.all()          
     return render_template("index.html", movies=all_movies)
 
-@app.route('/add')
+@app.route('/add', methods=['GET', 'POST'])
 def add():
-    return render_template('add.html')
+    add_movie_form = AddMovieForm()
+    if add_movie_form.validate_on_submit():
+        movie_title = add_movie_form.movie_title.data   # get the requested movie title
+        response = requests.get(url=MOVIE_SEARCH_URL, params={'api_key': API_KEY, 'query': movie_title})
+        data = response.json()['results']
+        # pprint(data)
+        return render_template('select.html', result=data)
+    return render_template('add.html', form=add_movie_form)
 
 @app.route('/edit', methods=['GET', 'POST'])
 def rate_movie():
     rate_movie_form = RateMovieForm()
     # get current movie id
     movie_id = request.args.get('id')
+    print(movie_id)
     # use that id to get the movie associated with it
     movie = Movie.query.get(movie_id)
     if rate_movie_form.validate_on_submit():
@@ -71,6 +91,28 @@ def rate_movie():
         db.session.commit()
         return redirect(url_for('home'))
     return render_template('edit.html', form=rate_movie_form, movie=movie)
+
+# finding details for a specific movie
+@app.route('/find')
+def movie_find():
+    # get the movie id
+    movie_id = request.args.get('id')
+    if movie_id:
+        # if movie id exits, then find the movie
+        movie_details_url = f'{MOVIE_INFO_URL}/{movie_id}'
+        response = requests.get(url=movie_details_url, params={'api_key':API_KEY})
+        data = response.json()
+        # create new Movie object
+        new_movie = Movie(
+                        title=data['title'],
+                        year=data['release_date'].split('-')[0],
+                        description=data['overview'],
+                        img_url=f'{MOVIE_DB_IMAGE_URL}{data["poster_path"]}',
+                        )
+        # add movie to database
+        db.session.add(new_movie)
+        db.session.commit()
+        return redirect(url_for('rate_movie', id=new_movie.id))
 
 @app.route('/delete')
 def delete_movie():
