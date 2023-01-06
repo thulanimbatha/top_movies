@@ -60,8 +60,15 @@ db.create_all()
 
 @app.route("/")
 def home():
-    # get all movies
-    all_movies = Movie.query.all()          
+    # get all movies - sorted by ranting
+    all_movies = Movie.query.order_by(Movie.rating).all()
+
+    # loop through the movies
+    for i in range(len(all_movies)):
+        # give each movie a ranking 
+        all_movies[i].ranking = len(all_movies) - i
+    db.session.commit()
+
     return render_template("index.html", movies=all_movies)
 
 @app.route('/add', methods=['GET', 'POST'])
