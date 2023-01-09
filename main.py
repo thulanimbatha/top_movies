@@ -5,10 +5,9 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 import requests
-from pprint import pprint
-from sqlalchemy import exc
+import os
 
-API_KEY = '7e93aed7901c618f74c82ce62c82f29c'
+API_KEY = os.environ.get('THE_MOVIE_DB_API')
 MOVIE_SEARCH_URL = 'https://api.themoviedb.org/3/search/movie'
 MOVIE_INFO_URL = 'https://api.themoviedb.org/3/movie'
 MOVIE_DB_IMAGE_URL = 'https://image.tmdb.org/t/p/w500'
